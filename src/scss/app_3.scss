@@ -1,0 +1,6 @@
+//$bodyColor: #68b180;
+$bodyColor: teal;
+body {
+    background-color: lighten($bodyColor, 40%);
+}
+
