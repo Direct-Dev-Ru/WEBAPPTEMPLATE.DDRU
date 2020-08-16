@@ -23,6 +23,15 @@ const less = require('gulp-less');
 const autoprefixer = require('gulp-autoprefixer');
 // Подключаем модуль gulp-clean-css
 const cleancss = require('gulp-clean-css');
+// Подключаем gulp-imagemin для работы с изображениями
+const imagemin = require('gulp-imagemin');
+// Подключаем модуль gulp-newer
+const newer = require('gulp-newer');
+// Подключаем модуль del
+const del = require('del');
+
+
+
 
 // Определяем логику работы Browsersync
 function browsersync() {
@@ -54,10 +63,10 @@ function scripts() {
 
 //Обработчик стилей проекта
 function styles() {
-  return src([      
+  return src([
       'src/css/normalize_1.css',
-      'src/css/main_2.css',      
-      'src/vendors/bootstrap/dist/css/bootstrap.css',      
+      'src/css/main_2.css',
+      'src/vendors/bootstrap/dist/css/bootstrap.css',
       'src/' + preprocessorExt + '/app_3.' + preprocessorExt + '',
       'src/css/app_4.css',
     ]) // Выбираем источники (Bootstrap и собственные стили)
@@ -81,8 +90,8 @@ function styles() {
 
 //Компиляция стилей Bootstrap'a
 function bootstrap() {
-  return src([      
-      'src/vendors/bootstrap/scss/bootstrap.scss',      
+  return src([
+      'src/vendors/bootstrap/scss/bootstrap.scss',
     ]) // Выбираем источник Bootstrap
     .pipe(sass()) // Преобразуем значение переменной "preprocessor" в функцию
     .pipe(concat('bootstrap.css')) // Конкатенируем в файл src/vendors/bootstrap/dist/css/bootstrap.css
@@ -97,6 +106,48 @@ function bootstrap() {
     .pipe(dest('src/vendors/bootstrap/dist/css/')); // Выгрузим результат в папку "app/css/"    
 }
 
+function images() {
+  return src('img/**/*') // Берём все изображения из папки источника
+    .pipe(newer('app/img/')) // Проверяем, было ли изменено (сжато) изображение ранее
+    .pipe(imagemin()) // Сжимаем и оптимизируем изображеня
+    .pipe(dest('app/img/')); // Выгружаем оптимизированные изображения в папку назначения
+}
+
+function cleanimg() {
+  return del('app/img/**/*', {
+    force: true
+  }); // Удаляем всё содержимое папки "app/images/dest/"
+}
+
+// Функция чтобы все собрать и положить куда - нибудь
+function buildcopy() {
+  return src([ // Выбираем нужные файлы
+      'app/css/**/*.min.css',
+      'app/js/**/*.min.js',
+      'app/img/**/*',
+      './*.html',
+      'html/*.html',
+      './*.ico',
+      './*.png',
+      './*.jpg',
+      './*.json',
+      './*.txt',
+      './*.md',
+      './*.xml',
+      './site.webmanifest',
+    ], {
+      base: '.'
+    }) // Параметр "base" сохраняет структуру проекта при копировании
+    .pipe(dest('dist')); // Выгружаем в папку с финальной сборкой
+}
+
+function cleandist() {
+  return del('dist/**/*', {
+    force: true
+  }); // Удаляем всё содержимое папки "dist/"
+}
+
+
 function startwatch() {
 
   // Выбираем все файлы JS в проекте, а затем исключим с суффиксом .min.js
@@ -106,6 +157,13 @@ function startwatch() {
     'src/css/*.css',
     'src/vendors/bootstrap/dist/css/bootstrap.css'
   ], styles);
+
+  // Мониторим файлы HTML на изменения
+  watch('./**/*.html').on('change', browserSync.reload);
+  watch('index.html').on('change', browserSync.reload);
+
+  // Мониторим папку-источник изображений и выполняем images(), если есть изменения
+  watch('img/**/*', images);
 }
 
 // Экспортируем функцию browsersync() как таск browsersync. Значение после знака = это имеющаяся функция.
@@ -114,7 +172,13 @@ exports.browsersync = browsersync;
 exports.scripts = scripts;
 // Экспортируем функцию styles() в таск styles
 exports.styles = styles;
+// Экспорт функции images() в таск images
+exports.images = images;
+// Экспортируем функцию cleanimg() как таск cleanimg
+exports.cleanimg = cleanimg;
 //Экспортируем функцию bootstrap() в таск bootstrap
 exports.bootstrap = bootstrap;
+// Создаём новый таск "build", который последовательно выполняет нужные операции
+exports.build = series(cleandist, styles, scripts, images, buildcopy);
 // Экспортируем дефолтный таск с нужным набором функций
 exports.default = parallel(styles, scripts, browsersync, startwatch);

@@ -10755,3 +10755,10 @@ a.text-dark:hover {
 body {
   background-color: #4dffff
 }
+img {
+  border-radius: 5px;
+  border-style: solid;
+  border-width: 2px;
+  border-color: rgba(0,128,128,.3);
+  padding: 10px
+}
