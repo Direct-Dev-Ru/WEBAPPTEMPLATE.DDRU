@@ -29,8 +29,79 @@ const imagemin = require('gulp-imagemin');
 const newer = require('gulp-newer');
 // Подключаем модуль del
 const del = require('del');
+// Import Gulp plugins for babel(irity).
+const babel = require('gulp-babel');
+const plumber = require('gulp-plumber');
 
 
+function jsDeps() {
+  const files = [
+    'src/vendors/modernizr/modernizr-3.11.2.min.js', // взяли modernizr     
+    'src/vendors/jquery/jquery-3.5.1.js', // взяли исходник jquery
+    'src/vendors/popperjs/popper.js', // взяли исходник popperjs
+    'src/vendors/bootstrap/dist/js/bootstrap.js', // взяли исходник bootstrap
+  ];
+  return src(files)    
+    // Combine these files into a single main.deps.js file.
+    .pipe(concat('main.deps.js'))
+    // Save the concatenated file to the tmp directory.
+    .pipe(dest('./tmp'));
+}
+
+function jsBuild() {
+  return src('src/js/**/*.js')
+    .pipe(plumber())
+    // Notice the name change.
+    .pipe(concat('main.build.js'))
+    .pipe(babel({
+      presets: [
+        ['@babel/env', {
+          modules: false
+        }]
+      ]
+    }))
+    // And the destination change.
+    .pipe(dest('./tmp'));
+}
+
+function babelirity() {
+  // An array of the two temp (concatenated) files.
+  const files = [
+    './tmp/main.deps.js',
+    './tmp/main.build.js'
+  ];
+  return src(files)
+    .pipe(plumber())
+    // Concatenate the third-party libraries and our
+    // homegrown components into a single main.js file.
+    .pipe(concat('appes5script.js'))
+    // Save it to the final destination.
+    .pipe(dest('src/es5js'));
+}
+
+
+function __babelirity() {
+  // This will grab any file within src/components or its
+  // subdirectories, then ...
+  // return src('./src/components/**/*.js')
+  return src([
+    'src/js/main.js',
+    'src/js/appscript.js'
+    ])
+    // Stop the process if an error is thrown.
+    .pipe(plumber())
+    .pipe(concat('appes5script.js'))
+    // Transpile the JS code using Babel's preset-env.    
+    .pipe(babel({
+      presets: [
+        ['@babel/env', {
+          modules: false
+        }]
+      ]
+    }))
+    // Save each component as a separate file in dist.
+    .pipe(dest('src/es5js'));
+}
 
 
 // Определяем логику работы Browsersync
@@ -47,13 +118,15 @@ function browsersync() {
 
 //обработчик скриптов проекта
 function scripts() {
+    
   return src([ // Берём файлы из источников
-      'src/vendors/modernizr/modernizr-3.11.2.min.js', // взяли modernizr 
-      'src/js/plugins.js', // взяли что то нужное
-      'src/vendors/jquery/jquery-3.5.1.js', // взяли исходник jquery
-      'src/vendors/popperjs/popper.js', // взяли исходник popperjs
-      'src/vendors/bootstrap/dist/js/bootstrap.js', // взяли исходник bootstrap
-      'src/js/main.js', // взяли пользовательские скрипты
+      //'src/vendors/modernizr/modernizr-3.11.2.min.js', // взяли modernizr 
+      //'src/js/plugins.js', // взяли что то нужное
+      //'src/vendors/jquery/jquery-3.5.1.js', // взяли исходник jquery
+      //'src/vendors/popperjs/popper.js', // взяли исходник popperjs
+      //'src/vendors/bootstrap/dist/js/bootstrap.js', // взяли исходник bootstrap
+      //'src/js/main.js', // взяли пользовательские скрипты
+      'src/es5js/appes5script.js'
     ])
     .pipe(concat('app.min.js')) // Конкатенируем в один файл
     .pipe(uglify()) // Сжимаем JavaScript
@@ -166,10 +239,14 @@ function startwatch() {
   watch('img/**/*', images);
 }
 
+// Экспортируем функцию babelirity() 
+exports.jsdeps = jsDeps;
+exports.babelirity = babelirity;
+
 // Экспортируем функцию browsersync() как таск browsersync. Значение после знака = это имеющаяся функция.
 exports.browsersync = browsersync;
 // Экспортируем функцию scripts() в таск scripts
-exports.scripts = scripts;
+exports.scripts = series(jsDeps,jsBuild,babelirity,scripts);
 // Экспортируем функцию styles() в таск styles
 exports.styles = styles;
 // Экспорт функции images() в таск images
